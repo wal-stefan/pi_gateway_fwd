@@ -605,7 +605,7 @@ int main(int argc, char *argv[])
     rfdev->dio[0] = 4;
     rfdev->dio[1] = 0;
     rfdev->dio[2] = 0;
-    rfdev->spiport = lgw_spi_open(SPI_DEV_TX);   /* this is the spidev2.0 be to unity LG02 */
+    rfdev->spiport = lgw_spi_open(SPI_DEV_RX);   /* this is the spidev2.0 be to unity LG02 */
     if (rfdev->spiport < 0) { 
         MSG_LOG(DEBUG_ERROR, "ERROR~ open spi_dev_tx error!\n");
         goto clean;
