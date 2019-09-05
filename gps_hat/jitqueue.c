@@ -4,6 +4,10 @@
 #include <pthread.h>
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
+#include <time.h>
+#include<sys/time.h>
+#include <string.h>
 
 #include "jitqueue.h"
 

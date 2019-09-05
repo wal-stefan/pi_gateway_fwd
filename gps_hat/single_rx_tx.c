@@ -11,6 +11,12 @@
 */
 
 #include <signal.h>		/* sigaction */
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>		
+
 #include <errno.h>		/* error messages */
 
 #include "radio.h"
@@ -21,6 +27,9 @@
 
 #define RADIO1    "/dev/spidev0.0"
 #define RADIO2    "/dev/spidev0.1"
+
+extern char *optarg;
+extern int optind, opterr, optopt;
 
 static char ver[8] = "0.2";
 

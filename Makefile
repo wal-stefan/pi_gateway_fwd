@@ -12,7 +12,7 @@ all:
 	$(MAKE) all -e -C util_tx_test
 	$(MAKE) all -e -C util_tx_continuous
 	$(MAKE) all -e -C lora_pkt_fwd
-##	$(MAKE) all -e -C gps_hat
+	$(MAKE) all -e -C gps_hat
 
 clean:
 	$(MAKE) clean -e -C libloragw
@@ -21,7 +21,7 @@ clean:
 	$(MAKE) clean -e -C util_tx_continuous
 	$(MAKE) clean -e -C lora_pkt_fwd
 	rm -rf lorapktfwd.deb
-##	$(MAKE) clean -e -C gps_hat
+	$(MAKE) clean -e -C gps_hat
 
 deb:
 	rm -rf pi_pkg

@@ -29,10 +29,13 @@
 #include <time.h>           /* time, clock_gettime, strftime, gmtime */
 #include <sys/time.h>       /* timeval */
 #include <unistd.h>         /* getopt, access */
+#include <sys/stat.h>
 #include <stdlib.h>         /* atoi, exit */
 #include <math.h>           /* modf */
 #include <assert.h>
+#include <dirent.h>
 
+#include <sys/types.h>
 #include <sys/socket.h> /* socket specific definitions */
 #include <netinet/in.h> /* INET constants and stuff */
 #include <arpa/inet.h>  /* IP address conversion stuff */
@@ -53,7 +56,6 @@
 #endif
 
 #define DEFAULT_KEEPALIVE	5	/* default time interval for downstream keep-alive packet */
-#define DEFAULT_STAT		30	/* default time interval for statistics */
 #define PUSH_TIMEOUT_MS		100
 #define PULL_TIMEOUT_MS		200
 #define FETCH_SLEEP_MS		10	/* nb of ms waited when a fetch return no packets */
@@ -96,7 +98,6 @@ static char server[64] = {'\0'}; /* address of the server (host name or IPv4/IPv
 static char serv_port_down[8] = "1700"; /* server port for downstream traffic */
 static char serv_port_up[8] = "1700"; /* server port for upstream traffic */
 static int keepalive_time = DEFAULT_KEEPALIVE; /* send a PULL_DATA request every X seconds, negative = disabled */
-static int stat_interval = 45; /* send a STAT  every X seconds */
 static char platform[16] = "GPSHAT";  /* platform definition */
 static char description[16] = "DESC";                        /* used for free form description */
 static char email[32]  = "support@dragino.com";                        /* used for contact email */
@@ -104,12 +105,12 @@ static float lat = 0.0;
 static float lon = 0.0;
 static float alt = 0.0;
 static uint8_t rfsf = 7;
-static uint16_t rfbw = 125000;
+static uint32_t rfbw = 125000;
 static uint8_t rfcr = 5;
 static uint8_t rfprlen = 8;
 static uint8_t rf_power = 16;            /* tx power of radio */
 static uint32_t rf_freq = 868100000;            /* rx frequency of radio */
-static uinit8_t syncwd = 52;            /* tx frequency of radio */
+static uint8_t syncwd = 52;            /* tx frequency of radio */
 static uint8_t logdebug = 0;          /* debug info option */
 static char server_type[16] = "LoRaWAN";          /* debug info option */
 
@@ -132,7 +133,7 @@ int DEBUG_SPI = 0;
 #define MOD_FSK         0x20
 
 /* statistics collection configuration variables */
-static unsigned stat_interval = DEFAULT_STAT; /* time interval (in sec) at which statistics are collected and displayed */
+static uint8_t stat_interval = 45; /* time interval (in sec) at which statistics are collected and displayed */
 
 /* gateway <-> MAC protocol variables */
 static uint32_t net_mac_h; /* Most Significant Nibble, network order */
@@ -257,7 +258,7 @@ static int parse_gateway_config(const char * conf_file) {
     /* server hostname or IP address (optional) */
     str = json_object_get_string(conf_obj, "server_address");
     if (str != NULL) {
-        strncpy(serv_addr, str, sizeof server);
+        strncpy(server, str, sizeof server);
         MSG_LOG(DEBUG_INFO, "INFO~ server hostname or IP address is configured to \"%s\"\n", server);
     }
 
@@ -284,7 +285,7 @@ static int parse_gateway_config(const char * conf_file) {
     /* get interval (in seconds) for statistics display (optional) */
     val = json_object_get_value(conf_obj, "stat_interval");
     if (val != NULL) {
-        stat_interval = (unsigned)json_value_get_number(val);
+        stat_interval = (uint8_t)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ statistics display interval is configured to %u seconds\n", stat_interval);
     }
 
@@ -309,43 +310,43 @@ static int parse_gateway_config(const char * conf_file) {
 
     val = json_object_get_value(conf_obj, "lat");
     if (val != NULL) {
-        lat = (double)json_value_get_boolean(val);
+        lat = (double)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW lat set to %lf\n", lat);
     }
 
     val = json_object_get_value(conf_obj, "lon");
     if (val != NULL) {
-        lon = (double)json_value_get_boolean(val);
+        lon = (double)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW lon set to %lf\n", lon);
     }
 
     val = json_object_get_value(conf_obj, "alt");
     if (val != NULL) {
-        alt = (double)json_value_get_boolean(val);
+        alt = (double)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW alt set to %lf\n", alt);
     }
 
     val = json_object_get_value(conf_obj, "rfsf");
     if (val != NULL) {
-        rfsf = (uint8_t)json_value_get_boolean(val);
+        rfsf = (uint8_t)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW rfsf set to %u\n", rfsf);
     }
 
     val = json_object_get_value(conf_obj, "rfbw");
     if (val != NULL) {
-        rfbw = (uint16_t)json_value_get_boolean(rfbw);
+        rfbw = (uint32_t)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW rfbw set to %u\n", rfbw);
     }
 
     val = json_object_get_value(conf_obj, "rfcr");
     if (val != NULL) {
-        rfcr = (uint8_t)json_value_get_boolean(val);
+        rfcr = (uint8_t)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW rfcr set to %u\n", rfcr);
     }
 
     val = json_object_get_value(conf_obj, "rfprlen");
     if (val != NULL) {
-        rfprlen = (uint8_t)json_value_get_boolean(val);
+        rfprlen = (uint8_t)json_value_get_number(val);
         MSG_LOG(DEBUG_INFO, "INFO~ GW rfprlen set to %u\n", rfprlen);
     }
 
@@ -552,15 +553,15 @@ int main(int argc, char *argv[])
     /* load configuration files */
     if (access(local_cfg_path, R_OK) == 0) { /* if there is a local conf, parse the conf */
         MSG_LOG(DEBUG_INFO, "INFO~ found local configuration file %s, parsing it\n", local_cfg_path);
-        x = parse_gateway_config(local_cfg_path);
-        if (x != 0) {
+        i = parse_gateway_config(local_cfg_path);
+        if (i != 0) {
             exit(EXIT_FAILURE);
         }
     }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-    switch (atoi(logdebug)) {
+    switch (logdebug) {
         case 1:
             DEBUG_PKT_FWD = 1;
             break;

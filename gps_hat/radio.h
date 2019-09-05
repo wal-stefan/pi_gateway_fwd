@@ -10,6 +10,8 @@
 */
 
 #include <stdint.h>
+#include <stdio.h>
+#include <stdbool.h>
 
 #ifndef _RADIO_H
 #define _RADIO_H
