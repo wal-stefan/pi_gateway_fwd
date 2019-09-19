@@ -31,4 +31,4 @@ radio.o: radio.c
 	$(CC) $(CFLAGS) -c radio.c
 
 clean:
-	rm *.o hat_pkt_fwd dual_pkt_fwd single_rx_tx 
+	rm -rf *.o hat_pkt_fwd dual_pkt_fwd single_rx_tx 
