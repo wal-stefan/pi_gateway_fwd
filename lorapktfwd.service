@@ -6,7 +6,7 @@ After=network-online.target
 [Service]
 Restart=always
 RestartSec=30
-WorkingDirectory=/etc/lora-packet-forwarder
+WorkingDirectory=/etc/lora-gateway
 ExecStartPre=/usr/bin/reset_lgw.sh start 
 ExecStart=/usr/bin/lora_pkt_fwd
 ExecStopPost=/usr/bin/reset_lgw.sh stop

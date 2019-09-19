@@ -22,7 +22,7 @@ LIBS := -lloragw -lrt -lm
 
 ### general build targets
 
-all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_gps test_loragw_cal
+all: libloragw.a test_loragw_reg test_loragw_gps 
 
 clean:
 	rm -f libloragw.a

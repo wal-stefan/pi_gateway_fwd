@@ -20,19 +20,19 @@ clean:
 	$(MAKE) clean -e -C util_tx_test
 	$(MAKE) clean -e -C util_tx_continuous
 	$(MAKE) clean -e -C lora_pkt_fwd
-	rm -rf lorapktfwd.deb
 	$(MAKE) clean -e -C gps_hat
+	rm -rf lorapktfwd.deb
 
 deb:
 	rm -rf pi_pkg
 	mkdir -p pi_pkg/usr/bin
 	mkdir -p pi_pkg/lib/systemd/system
-	mkdir -p pi_pkg/etc/lora-packet-forwarder
+	mkdir -p pi_pkg/etc/lora-gateway
 	cp -rf DEBIAN pi_pkg
 	cp -rf lorapktfwd.service pi_pkg/lib/systemd/system
-	cp -rf lora_pkt_fwd/cfg pi_pkg/etc/lora-packet-forwarder
-	cp -rf lora_pkt_fwd/*conf.json pi_pkg/etc/lora-packet-forwarder
-	cp -rf lora_pkt_fwd/cfg pi_pkg/etc/lora-packet-forwarder
+	cp -rf lora_pkt_fwd/cfg pi_pkg/etc/lora-gateway
+	cp -rf lora_pkt_fwd/*conf.json pi_pkg/etc/lora-gateway
+	cp -rf lora_pkt_fwd/cfg pi_pkg/etc/lora-gateway
 	install -m 755 lora_pkt_fwd/lora_pkt_fwd pi_pkg/usr/bin
 	install -m 755 util_tx_test/util_tx_test pi_pkg/usr/bin
 	install -m 755 util_tx_continuous/util_tx_continuous pi_pkg/usr/bin
