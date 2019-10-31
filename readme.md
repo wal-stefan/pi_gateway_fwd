@@ -11,6 +11,7 @@ Lora network packet forwarder project
 Changes in this repository compared to [Dragino's repository](https://github.com/dragino/pi_gateway_fwd):
 - Modify default device name for GPS (`/dev/ttyS0` instead of `/dev/ttyACM0` already used by bluetooth)
 - Add .gitignore for generated files
+- Fix output of tmms value
 
 1. Core program: lora_pkt_fwd
 -------------------------------
