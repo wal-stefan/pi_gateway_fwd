@@ -100,12 +100,12 @@ enum gps_msg {
 @brief Configure a GPS module
 
 @param tty_path path to the TTY connected to the GPS
-@param gps_familly parameter (eg. ubx6 for uBlox gen.6)
+@param gps_family_str parameter: NULL for default (will enable the RMC sentence on the Quectel L70), ubx7 for UBX7-enabled devices
 @param target_brate target baudrate for communication (0 keeps default target baudrate)
 @param fd_ptr pointer to a variable to receive file descriptor on GPS tty
 @return success if the function was able to connect and configure a GPS module
 */
-int lgw_gps_enable(char* tty_path, char* gps_familly, speed_t target_brate, int* fd_ptr);
+int lgw_gps_enable(char* tty_path, char* gps_family_str, speed_t target_brate, int* fd_ptr);
 
 /**
 @brief Restore GPS serial configuration and close serial device

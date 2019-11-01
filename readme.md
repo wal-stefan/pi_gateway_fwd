@@ -12,6 +12,7 @@ Changes in this repository compared to [Dragino's repository](https://github.com
 - Modify default device name for GPS (`/dev/ttyS0` instead of `/dev/ttyACM0` already used by bluetooth)
 - Add .gitignore for generated files
 - Fix output of tmms value
+- Add support for using the Quectel L70 as timing source. RMC sentences are enabled instead of ubx7, which are not supported by the GPS module.
 
 1. Core program: lora_pkt_fwd
 -------------------------------

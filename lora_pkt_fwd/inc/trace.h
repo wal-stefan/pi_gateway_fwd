@@ -27,6 +27,7 @@ Maintainer: Michael Coracin
 #define DEBUG_PPM       0
 #define DEBUG_WARNING   0
 #define DEBUG_ERROR     1
+#define DEBUG_GPS_FWD   1
 
 #define MSG(args...) printf(args) /* message that is destined to the user */
 #define MSG_DEBUG(FLAG, fmt, ...)                                                                         \

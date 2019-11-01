@@ -88,6 +88,13 @@ static bool gps_pos_ok = false;
 static char gps_mod = 'N'; /* GPS mode (N no fix, A autonomous, D differential) */
 static short gps_sat = 0; /* number of satellites used for fix */
 
+static enum {
+    /* Timing synchronization via RMC */
+    GPS_FAMILY_DEFAULT,
+    /* Use the proprietary UBX7 protocol */
+    GPS_FAMILY_UBX7,
+} gps_family;
+
 static struct termios ttyopt_restore;
 
 /* -------------------------------------------------------------------------- */
@@ -251,7 +258,7 @@ int str_chop(char *s, int buff_size, char separator, int *idx_ary, int max_idx) 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
-int lgw_gps_enable(char *tty_path, char *gps_family, speed_t target_brate, int *fd_ptr) {
+int lgw_gps_enable(char *tty_path, char *gps_family_str, speed_t target_brate, int *fd_ptr) {
     int i;
     struct termios ttyopt; /* serial port options */
     int gps_tty_dev; /* file descriptor to the serial port of the GNSS module */
@@ -261,6 +268,10 @@ int lgw_gps_enable(char *tty_path, char *gps_family, speed_t target_brate, int *
                     0x08, 0x00, /* Payload length */
                     0x01, 0x20, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, /* Enable NAV-TIMEGPS output on serial */
                     0x32, 0x94 }; /* Checksum */
+    /* This enables the ZDA and RMC record on the L70 GPS module.
+     * See 3.19 in https://www.quectel.com/UploadImage/Downlad/Quectel_L70_GPS_Protocol_Specification_V2.0.pdf
+     * However, note that the example given there misses a ",0" in between */
+    char rmc_cmd[] = "$PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0*29\r\n";
     ssize_t num_written;
 
     /* check input parameters */
@@ -276,15 +287,20 @@ int lgw_gps_enable(char *tty_path, char *gps_family, speed_t target_brate, int *
     *fd_ptr = gps_tty_dev;
 
     /* manage the different GPS modules families */
-    if (gps_family == NULL) {
-        DEBUG_MSG("WARNING: this version of GPS module may not be supported\n");
-    } else if (strncmp(gps_family, "ubx7", 4) != 0) {
+    if (gps_family_str == NULL) {
+        gps_family = GPS_FAMILY_DEFAULT;
+        DEBUG_MSG("INFO: Using default GPS family\n");
+    } else if (strncmp(gps_family_str, "ubx7", 4) == 0) {
         /* The current implementation relies on proprietary messages from U-Blox */
         /* GPS modules (UBX, NAV-TIMEGPS...) and has only be tested with a u-blox 7. */
         /* Those messages allow to get NATIVE GPS time (no leap seconds) required */
         /* for class-B handling and GPS synchronization */
         /* see lgw_parse_ubx() function for details */
-        DEBUG_MSG("WARNING: this version of GPS module may not be supported\n");
+        gps_family = GPS_FAMILY_UBX7;
+        DEBUG_MSG("INFO: Using ubx7 GPS family\n");
+    } else {
+        DEBUG_MSG("WARNING: Falling back to default GPS family. This version of GPS module may not be supported\n");
+        gps_family = GPS_FAMILY_DEFAULT;
     }
 
     /* manage the target bitrate */
@@ -348,11 +364,19 @@ int lgw_gps_enable(char *tty_path, char *gps_family, speed_t target_brate, int *
     }
     tcflush(gps_tty_dev, TCIOFLUSH);
 
-    /* Send UBX CFG NAV-TIMEGPS message to tell GPS module to output native GPS time */
-    /* This is a binary message, serial port has to be properly configured to handle this */
-    num_written = write (gps_tty_dev, ubx_cmd_timegps, UBX_MSG_NAVTIMEGPS_LEN);
-    if (num_written != UBX_MSG_NAVTIMEGPS_LEN) {
-        DEBUG_MSG("ERROR: Failed to write on serial port (written=%d)\n", (int) num_written);
+    if (gps_family == GPS_FAMILY_UBX7) {
+        /* Send UBX CFG NAV-TIMEGPS message to tell GPS module to output native GPS time */
+        /* This is a binary message, serial port has to be properly configured to handle this */
+        num_written = write (gps_tty_dev, ubx_cmd_timegps, UBX_MSG_NAVTIMEGPS_LEN);
+        if (num_written != UBX_MSG_NAVTIMEGPS_LEN) {
+            DEBUG_MSG("ERROR: Failed to write on serial port (written=%d)\n", (int) num_written);
+        }
+    }
+    else if (gps_family == GPS_FAMILY_DEFAULT) {
+        num_written = write (gps_tty_dev, rmc_cmd, strlen(rmc_cmd));
+        if (num_written != (ssize_t)strlen(rmc_cmd)) {
+            DEBUG_MSG("ERROR: Failed to write on serial port (written=%d)\n", (int) num_written);
+        }
     }
 
     /* get timezone info */
@@ -398,6 +422,11 @@ enum gps_msg lgw_parse_ubx(const char *serial_buff, size_t buff_size, size_t *ms
     unsigned int i;
 
     *msg_size = 0; /* ensure msg_size alway receives a value */
+
+    if (gps_family != GPS_FAMILY_UBX7) {
+        DEBUG_MSG("WARNING: Module not initialized to support ubx7, but call to %s\n", __func__);
+        return IGNORED;
+    }
 
     /* check input parameters */
     if (serial_buff == NULL) {
@@ -632,13 +661,19 @@ int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s 
             DEBUG_MSG("ERROR: NO VALID TIME TO RETURN\n");
             return LGW_GPS_ERROR;
         }
-        fractpart = modf(((double)gps_iTOW / 1E3) + ((double)gps_fTOW / 1E9), &intpart);
-        /* Number of seconds since beginning on current GPS week */
-        gps_time->tv_sec = (time_t)intpart;
-        /* Number of seconds since GPS epoch 06.Jan.1980 */
-        gps_time->tv_sec += (time_t)gps_week * 604800; /* day*hours*minutes*secondes: 7*24*60*60; */
-        /* Fractional part in nanoseconds */
-        gps_time->tv_nsec = (long)(fractpart * 1E9);
+        // FIXME: Experimental: Base GPS time on UTC, as we don't get raw GPS
+        if (gps_family == GPS_FAMILY_UBX7) {
+            fractpart = modf(((double)gps_iTOW / 1E3) + ((double)gps_fTOW / 1E9), &intpart);
+            /* Number of seconds since beginning on current GPS week */
+            gps_time->tv_sec = (time_t)intpart;
+            /* Number of seconds since GPS epoch 06.Jan.1980 */
+            gps_time->tv_sec += (time_t)gps_week * 604800; /* day*hours*minutes*secondes: 7*24*60*60; */
+            /* Fractional part in nanoseconds */
+            gps_time->tv_nsec = (long)(fractpart * 1E9);
+        } else {
+            lgw_gps_get(gps_time, NULL, NULL, NULL);
+            gps_time->tv_sec -= 315964800;
+        }
     }
     if (loc != NULL) {
         if (!gps_pos_ok) {

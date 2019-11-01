@@ -24,6 +24,11 @@ Maintainer: Michael Coracin
     #define _XOPEN_SOURCE 500
 #endif
 
+#ifndef GPS_FAMILY
+/* Use either NULL for plain GPS with RMC or "ubx7" for vendor-specific UBX commands */
+#define GPS_FAMILY NULL
+#endif
+
 #include <stdint.h>     /* C99 types */
 #include <stdbool.h>    /* bool type */
 #include <stdio.h>      /* printf */
@@ -162,7 +167,7 @@ int main()
     printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 
     /* Open and configure GPS */
-    i = lgw_gps_enable("/dev/ttyS0", "ubx7", 0, &gps_tty_dev);
+    i = lgw_gps_enable("/dev/ttyS0", GPS_FAMILY, 0, &gps_tty_dev);
     if (i != LGW_GPS_SUCCESS) {
         printf("ERROR: IMPOSSIBLE TO ENABLE GPS\n");
         exit(EXIT_FAILURE);
@@ -248,7 +253,12 @@ int main()
                         frame_size = 0;
                     } else if (latest_msg == NMEA_RMC) { /* Get location from RMC frames */
                         gps_process_coords();
+                        if (GPS_FAMILY == NULL) {
+                            printf("\n~~ RMC sentence, triggering synchronization attempt ~~\n");
+                            gps_process_sync();
+                        }
                     }
+
                 }
             }
 
