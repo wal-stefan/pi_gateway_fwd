@@ -1,8 +1,8 @@
 #!/bin/bash    
 
-LORA_GATEWAY_DRIVER_PATH=../lora_gateway
+LORA_GATEWAY_DRIVER_PATH=libloragw
 
-TARGET_IP_ADDRESS=192.168.0.1
+TARGET_IP_ADDRESS=localhost
 TARGET_PATH=/home/pi/lora-net
 TARGET_USER=pi
 
