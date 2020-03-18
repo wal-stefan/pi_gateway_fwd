@@ -1190,7 +1190,7 @@ int main(void)
 
     /* Start GPS a.s.a.p., to allow it to lock */
     if (gps_tty_path[0] != '\0') { /* do not try to open GPS device if no path set */
-        i = lgw_gps_enable(gps_tty_path, NULL, 0, &gps_tty_fd); /* HAL only supports u-blox 7 for now */
+        i = lgw_gps_enable(gps_tty_path, "ubx7", 0, &gps_tty_fd); /* HAL only supports u-blox 7 for now */
         if (i != LGW_GPS_SUCCESS) {
             MSG_DEBUG(DEBUG_WARNING, "WARNING: [main] impossible to open %s for GPS sync (check permissions)\n", gps_tty_path);
             gps_enabled = false;
@@ -1430,25 +1430,25 @@ int main(void)
             printf("REPORT~ # SX1301 time (PPS): %u\n", trig_tstamp);
         }
         jit_print_queue (&jit_queue, false, DEBUG_LOG);
-        MSG_DEBUG(DEBUG_GPS_FWD, "### [GPS] ###\n");
+        MSG_DEBUG(DEBUG_INFO, "### [GPS] ###\n");
         if (gps_enabled == true) {
             /* no need for mutex, display is not critical */
             if (gps_ref_valid == true) {
-                MSG_DEBUG(DEBUG_GPS_FWD, "# Valid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
+                MSG_DEBUG(DEBUG_INFO, "# Valid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
             } else {
-                MSG_DEBUG(DEBUG_GPS_FWD, "# Invalid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
+                MSG_DEBUG(DEBUG_INFO, "# Invalid time reference (age: %li sec)\n", (long)difftime(time(NULL), time_reference_gps.systime));
             }
             if (coord_ok == true) {
-                MSG_DEBUG(DEBUG_GPS_FWD, "# GPS coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
+                MSG_DEBUG(DEBUG_INFO, "# GPS coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
             } else {
-                MSG_DEBUG(DEBUG_GPS_FWD, "# no valid GPS coordinates available yet\n");
+                MSG_DEBUG(DEBUG_INFO, "# no valid GPS coordinates available yet\n");
             }
         } else if (gps_fake_enable == true) {
-            MSG_DEBUG(DEBUG_GPS_FWD, "# GPS *FAKE* coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
+            MSG_DEBUG(DEBUG_INFO, "# GPS *FAKE* coordinates: latitude %.5f, longitude %.5f, altitude %i m\n", cp_gps_coord.lat, cp_gps_coord.lon, cp_gps_coord.alt);
         } else {
-            MSG_DEBUG(DEBUG_GPS_FWD, "# GPS sync is disabled\n");
+            MSG_DEBUG(DEBUG_INFO, "# GPS sync is disabled\n");
         }
-        MSG_DEBUG(DEBUG_GPS_FWD, "##### END #####\n");
+        MSG_DEBUG(DEBUG_INFO, "##### END #####\n");
 
         /* generate a JSON report (will be sent to server by upstream thread) */
         pthread_mutex_lock(&mx_stat_rep);
@@ -2959,8 +2959,9 @@ void thread_gps(void) {
                         /* checksum failed */
                         frame_size = 0;
                     } else if (latest_msg == NMEA_RMC) { /* Get location from RMC frames */
-                        gps_process_coords();
                         gps_process_sync();
+                    } else if (latest_msg == NMEA_GGA) { /* Get location from GGA frames */
+                        gps_process_coords();
                     }
                 }
             }

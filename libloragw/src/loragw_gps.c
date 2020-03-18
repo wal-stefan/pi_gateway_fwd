@@ -564,7 +564,7 @@ enum gps_msg lgw_parse_nmea(const char *serial_buff, int buff_size) {
         memcpy(parser_buf, serial_buff, buff_size);
         parser_buf[buff_size] = '\0';
         nb_fields = str_chop(parser_buf, buff_size, ',', str_index, ARRAY_SIZE(str_index));
-        if (nb_fields != 13) {
+        if (nb_fields < 13) {
             DEBUG_MSG("Warning: invalid RMC sentence (number of fields)\n");
             return IGNORED;
         }
@@ -638,8 +638,7 @@ int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s 
             return LGW_GPS_ERROR;
         }
         memset(&x, 0, sizeof(x));
-        if (gps_yea < 100) { /* 2-digits year, 20xx */
-            x.tm_year = gps_yea + 100; /* 100 years offset to 1900 */
+        if (gps_yea < 100) { /* 2-digits year, 20xx */ x.tm_year = gps_yea + 100; /* 100 years offset to 1900 */
         } else { /* 4-digits year, Gregorian calendar */
             x.tm_year = gps_yea - 1900;
         }
