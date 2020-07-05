@@ -1190,7 +1190,7 @@ int main(void)
 
     /* Start GPS a.s.a.p., to allow it to lock */
     if (gps_tty_path[0] != '\0') { /* do not try to open GPS device if no path set */
-        i = lgw_gps_enable(gps_tty_path, "ubx7", 0, &gps_tty_fd); /* HAL only supports u-blox 7 for now */
+        i = lgw_gps_enable(gps_tty_path, NULL, 0, &gps_tty_fd);
         if (i != LGW_GPS_SUCCESS) {
             MSG_DEBUG(DEBUG_WARNING, "WARNING: [main] impossible to open %s for GPS sync (check permissions)\n", gps_tty_path);
             gps_enabled = false;
